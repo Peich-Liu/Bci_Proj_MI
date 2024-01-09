@@ -20,3 +20,12 @@ def loadfile(file_path):
     trialsData = eegData[4] 
     trialsLabels = eegData[5]
     return Fs, winNum, trialsData, trialsLabels
+    
+def preprocessing():
+    pass
+def ML_method():
+    pass
+def DL_method():
+    pass
+def evaluate():
+    pass
