@@ -67,56 +67,49 @@ for fileName in os.listdir(dataDir):
     # ax.legend()
 
     # plt.show()
-    # feature_1 = csp_features[:, 1]
-    # feature_2 = csp_features[:, 2]
+    feature_1 = csp_features[:, 1]
+    feature_2 = csp_features[:, 2]
 
-    # plt.figure(figsize=(10, 6))
-    # plt.scatter(feature_1[dataLabel == 0], feature_2[dataLabel == 0], c='blue', label='Class 0', alpha=0.5)
-    # plt.scatter(feature_1[dataLabel == 1], feature_2[dataLabel == 1], c='red', label='Class 1', alpha=0.5)
+    plt.figure(figsize=(10, 6))
+    plt.scatter(feature_1[dataLabel == 0], feature_2[dataLabel == 0], c='blue', label='Class 0', alpha=0.5)
+    plt.scatter(feature_1[dataLabel == 1], feature_2[dataLabel == 1], c='red', label='Class 1', alpha=0.5)
 
-    # plt.xlabel('CSP Feature 1')
-    # plt.ylabel('CSP Feature 2')
-    # plt.title('2D Plot of CSP Features')
-    # plt.legend()
+    plt.xlabel('CSP Feature 1')
+    plt.ylabel('CSP Feature 2')
+    plt.title('2D Plot of CSP Features')
+    plt.legend()
 
-    # plt.show()
-    # csp.plot_patterns(epochs.info)
-    # csp_component_1 = csp_features[:, 2]
-    # csp_component_2 = csp_features[:, 3]
-    # plt.figure()
-    # plt.plot(csp_component_1, label='Label=0')
-    # plt.plot(csp_component_2, label='Label=1')
-    # plt.legend()
+    plt.show()
+    csp.plot_patterns(epochs.info)
+    csp_component_1 = csp_features[:, 2]
+    csp_component_2 = csp_features[:, 3]
+    plt.figure()
+    plt.plot(csp_component_1, label='Label=0')
+    plt.plot(csp_component_2, label='Label=1')
+    plt.legend()
 
-    # plt.title('After CSP')
-    # plt.xlabel('Samples')
-    # plt.ylabel('CSP Feature Value')
+    plt.title('After CSP')
+    plt.xlabel('Samples')
+    plt.ylabel('CSP Feature Value')
 
-    # # 显示图表
-    # plt.show()
-    
-    # # 找到两个类别的索引
+    plt.show()
+
     # class_0_indices = dataLabel == 0
     # class_1_indices = dataLabel == 1
 
-    # # 对于每一个 CSP 分量
-    # for i in range(2):  # 假设有4个分量
-    #     # 提取该分量的特征
+    # for i in range(2):  
     #     feature_class_0 = csp_features[class_0_indices, i]
     #     feature_class_1 = csp_features[class_1_indices, i]
         
-    #     # 绘制散点图
     #     plt.figure(figsize=(8, 6))
     #     plt.scatter(feature_class_0, [0] * len(feature_class_0), label='Label 0', alpha=0.5)
     #     plt.scatter(feature_class_1, [1] * len(feature_class_1), label='Label 1', alpha=0.5)
         
-    #     # 添加标题和图例
     #     plt.title(f'CSP Component {i+1}')
     #     plt.xlabel('Feature Value')
     #     plt.yticks([0, 1], ['Label 0', 'Label 1'])
     #     plt.legend()
-        
-    #     # 显示图表
+
     #     plt.show()
 
     print("123")
