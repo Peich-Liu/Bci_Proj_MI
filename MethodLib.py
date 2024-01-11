@@ -1,12 +1,14 @@
 import os
 import csv
+import mne
 import numpy as np
+import pandas as pd 
 
 import scipy.io as scio
 from scipy.linalg import eigh
 import scipy.signal as signal
 from mne.decoding import CSP
-
+from parameterSetup import dataParameters
 
     
 def loadFile(filePath):
@@ -28,8 +30,10 @@ def loadFile(filePath):
     trialsLabels = eegData[5]
     
     windowInfo = []
+    convertTrailData = []
     for i, (window, label) in enumerate(zip(trialsData, trialsLabels)):
         # print("winNum",winNum,"shape=",window[0].shape[0])
+        debug = window[0]
         start = i * window[0].shape[0] / Fs
         end = (i + 1) * window[0].shape[0] / Fs
         windowInfo.append({
@@ -40,20 +44,32 @@ def loadFile(filePath):
             'label': label[0],
             'filePath': filePath
         })
-    return windowInfo, trialsData, trialsLabels
+        transWindowData = np.array(window[0]).T
+        convertTrailData.append(transWindowData)
+    MneTrailData = np.stack(convertTrailData)
+    return windowInfo, MneTrailData, trialsLabels
     # return {'id': subjectId, 'file_path': filePath, 'Fs': Fs, 'winNum': winNum}
 
 def loadAllFile(fileFolder):
+    #need change
     allData = []
     allLabel = []
+    allInfo = []
+    convertTrailData = []
     for fileName in os.listdir(fileFolder):
         if fileName.endswith('.mat'):
             filePath = os.path.join(fileFolder, fileName)
-            _, winData, winLabel = loadFile(filePath)
+            winInfo, winData, winLabel = loadFile(filePath)
             allData.extend(winData)
             allLabel.extend(winLabel)
-    # print("datalen",len(allData),"labellen",len(allLabel),"data",allData)
-    return allData, allLabel
+            allInfo.extend(winInfo)
+    for window in allData:
+        transWindow = np.array(window)
+        convertTrailData.append(transWindow)
+    MneTrailData = np.stack(convertTrailData)
+
+    return allInfo, MneTrailData, allLabel
+    
     
 def readDataFromPath(filePath):
     data = scio.loadmat(filePath)
@@ -81,105 +97,108 @@ def createOriAnnotationFile(folderPath, annotationPath):
                 for info in window_info:
                     writer.writerow(info)
 
-def createAnnotationFromInfo(winInfo):
-    pass
-
-def bandPass(data, lowCut, highCut, fs, order=5):
-    nyq = 0.5 * fs
-    low = lowCut / nyq
-    high = highCut / nyq
-    b, a = signal.butter(order, [low, high], btype='band')
-    return signal.filtfilt(b, a, data, axis=0)
-
-def loadFilterFile(filePath):
+def generateMneData(filePath, Annotation, lowBand, highBand):
     '''
-    use filteredData[n] to get different window
-    use filteredData[n][m] to get different sample point
-    use filteredLabel[n][0] to get window's label
+    Generate the data after band filter
     '''
-    data = scio.loadmat(filePath)
-    filteredData = data['filteredSignal']
-    filteredLabel = data['filteredLabel']
-    subjectId = data['subjectId']
-    Fs = data['Fs'][0][0]
-    filePathInMat = data['filePath']
+    # filteredData, filteredLabel, filteredInfo = loadFilterFile(filePath)
+    events = []
+    filteredInfo, filteredData, filteredLabel = loadFile(filePath)
+    # filteredLabel, filteredData, filteredInfo = loadFile(filePath)
+    channelName = ['CH0','CH1','CH2','CH3','CH4','CH5','CH6',
+                    'CH7','CH8','CH9','CH10','CH11','CH12','CH13','CH14','CH15']
+    fsMne = dataParameters.Fs
+    chType = 'eeg'
+    mneInfo = mne.create_info(ch_names=channelName, sfreq=fsMne, ch_types=chType)
+    # mneInfo.set_montage('biosemi64')
+    transposed_data = np.transpose(filteredData[0], (1, 0))
+    dataDf = pd.read_csv(Annotation)
+    for _, row in dataDf.iterrows():
+        if row['subjectId'] == filteredInfo[0]['subjectId']:
+            start = int(row['start'] * row['Fs'])
+            end = int(row['end'] * row['Fs'])
+            label = row['label']
+            events.append([start, 0, label])
+    epochs = mne.EpochsArray(filteredData, info=mneInfo, events=events)
+    epochs.filter(l_freq=lowBand, h_freq=highBand)
     
-    windowInfo = []
-    for i, (window, label) in enumerate(zip(filteredData, filteredLabel)):
-        # print("winNum",winNum,"shape=",window[0].shape[0])
-        start = i * window.shape[0] / Fs
-        end = (i + 1) * window.shape[0] / Fs
-        # print("shape",start)
-        windowInfo.append({
-            'subjectId': f'{subjectId}',
-            'Fs': Fs,
-            'start': start,
-            'end': end,
-            'label': label[0],
-            'filePath': filePath
-        })
-    return filteredData, filteredLabel, windowInfo
-# a,b = loadFilterFile('/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/resultStore/Standard/afterFilter/PAT013.mat')
-# data1 = a[0]
-# data2 = a[0][0]
-# label1 = b[0]
-# label2 = b[0][0]
-# print(data2[0])
-def loadAllFilterFile(fileFolder):
-    allData = []
-    for fileName in os.listdir(fileFolder):
-        if fileName.endswith('.mat'):
-            filePath = os.path.join(fileFolder, fileName)
-            winData = loadFilterFile(filePath)
-            allData.extend(winData)
-    return allData
-
-def filterSignal(filePath, lowCut, highCut, Fs, mat_filename):
-    filteredSignal = []
-    filteredLabel = []
-    winInfo, winData, winLabel = loadFile(filePath)
-    subjectIdStore = winInfo[0]['subjectId']
-    FsStore = winInfo[0]['Fs']
-    filePathStore = winInfo[0]['filePath']
-    for win, label in zip(winData, winLabel):
-        windowOri = win[0]
-        if windowOri.shape[1] == 16:
-            filteredWinow = bandPass(windowOri, lowCut, highCut,Fs)
-            filteredSignal.append(filteredWinow)   
-            filteredLabel.append(label)
-    
-    scio.savemat(mat_filename, {
-                            'filteredSignal': filteredSignal,
-                            'filteredLabel':filteredLabel,
-                            'subjectId':subjectIdStore,
-                            'Fs':FsStore,
-                            'filePath':filePathStore
-                            })
-    # return filteredInfo, filteredSignal, filteredLabel
-
-def TrainCsp(filePath):
-    filteredData, filteredLabel, _ = loadFilterFile(filePath)
-    reshaped_data = filteredData.reshape(filteredData.shape[0], -1)
-    test = reshaped_data[0]
-    transposed_data = np.transpose(filteredData, (0, 2, 1))
-    
-    class1_data = transposed_data[filteredLabel.flatten() == 0, :]
-    class2_data = transposed_data[filteredLabel.flatten() == 1, :]
-    min_length = min(len(class1_data), len(class2_data))
-    class1_data = class1_data[:min_length]
-    class2_data = class2_data[:min_length]
-    csp = CSP(n_components=4)
-    print(class1_data.shape)
-    csp.fit(class1_data, class2_data)
-    
-    csp_features = csp.transform(reshaped_data)
-    print(csp_features)
+    # epochs[0].plot(scalings='auto')
     print("123")
-    
-TrainCsp('/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/resultStore/Standard/afterFilter/PAT013.mat')
+    return epochs, filteredLabel[:,0]
+# epochs = generateMneData('/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/MI_BCI_Data/PAT013.mat', '/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/resultStore/Standard/Annotation.csv')
 def ML_method():
     pass
 def DL_method():
     pass
 def evaluate():
     pass
+
+
+
+
+# def bandPass(data, lowCut, highCut, fs, order=5):
+#     nyq = 0.5 * fs
+#     low = lowCut / nyq
+#     high = highCut / nyq
+#     b, a = signal.butter(order, [low, high], btype='band')
+#     return signal.filtfilt(b, a, data, axis=0)
+
+# def filterSignal(filePath, lowCut, highCut, Fs, mat_filename):
+#     filteredSignal = []
+#     filteredLabel = []
+#     winInfo, winData, winLabel = loadFile(filePath)
+#     subjectIdStore = winInfo[0]['subjectId']
+#     FsStore = winInfo[0]['Fs']
+#     filePathStore = winInfo[0]['filePath']
+#     for win, label in zip(winData, winLabel):
+#         windowOri = win[0]
+#         if windowOri.shape[1] == 16:
+#             filteredWinow = bandPass(windowOri, lowCut, highCut,Fs)
+#             filteredSignal.append(filteredWinow)   
+#             filteredLabel.append(label)
+    
+#     scio.savemat(mat_filename, {
+#                             'filteredSignal': filteredSignal,
+#                             'filteredLabel':filteredLabel,
+#                             'subjectId':subjectIdStore,
+#                             'Fs':FsStore,
+#                             'filePath':filePathStore
+#                             })
+    # return filteredInfo, filteredSignal, filteredLabel
+# def loadFilterFile(filePath):
+#     '''
+#     use filteredData[n] to get different window
+#     use filteredData[n][m] to get different sample point
+#     use filteredLabel[n][0] to get window's label
+#     '''
+#     data = scio.loadmat(filePath)
+#     filteredData = data['filteredSignal']
+#     filteredLabel = data['filteredLabel']
+#     subjectId = data['subjectId']
+#     Fs = data['Fs'][0][0]
+#     filePathInMat = data['filePath']
+    
+#     windowInfo = []
+#     for i, (window, label) in enumerate(zip(filteredData, filteredLabel)):
+#         # print("winNum",winNum,"shape=",window[0].shape[0])
+#         start = i * window.shape[0] / Fs
+#         end = (i + 1) * window.shape[0] / Fs
+#         # print("shape",start)
+#         windowInfo.append({
+#             'subjectId': f'{subjectId}',
+#             'Fs': Fs,
+#             'start': start,
+#             'end': end,
+#             'label': label[0],
+#             'filePath': filePath
+#         })
+#     return filteredData, filteredLabel, windowInfo
+
+# def loadAllFilterFile(fileFolder):
+#     allData = []
+#     for fileName in os.listdir(fileFolder):
+#         if fileName.endswith('.mat'):
+#             filePath = os.path.join(fileFolder, fileName)
+#             winData = loadFilterFile(filePath)
+#             allData.extend(winData)
+#     return allData
