@@ -3,11 +3,15 @@ import csv
 import mne
 import numpy as np
 import pandas as pd 
+import matplotlib.pyplot as plt
+
 
 import scipy.io as scio
 from scipy.linalg import eigh
 import scipy.signal as signal
 from mne.decoding import CSP
+
+
 from parameterSetup import dataParameters
 
     
@@ -39,6 +43,7 @@ def loadFile(filePath):
         windowInfo.append({
             'subjectId': f'{subjectId}',
             'Fs': Fs,
+            'winNum':winNum,
             'start': start,
             'end': end,
             'label': label[0],
@@ -69,20 +74,12 @@ def loadAllFile(fileFolder):
     MneTrailData = np.stack(convertTrailData)
 
     return allInfo, MneTrailData, allLabel
-    
-    
-def readDataFromPath(filePath):
-    data = scio.loadmat(filePath)
-    eegData = data['subjectData'][0][0]
-    trialsData = eegData[4] 
-    trialsLabels = eegData[5]
-    return trialsData, trialsLabels
 
 def createOriAnnotationFile(folderPath, annotationPath):
     '''
     Create an annotation CSV file for all .mat files in the specified folder.
     '''
-    headers = ['subjectId', 'Fs', 'start', 'end', 'label', 'filePath']
+    headers = ['subjectId', 'Fs', 'winNum', 'start', 'end', 'label', 'filePath']
 
     with open(annotationPath, 'w', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=headers)
@@ -96,42 +93,136 @@ def createOriAnnotationFile(folderPath, annotationPath):
                 
                 for info in window_info:
                     writer.writerow(info)
-
 def generateMneData(filePath, Annotation, lowBand, highBand):
     '''
     Generate the data after band filter
     '''
-    # filteredData, filteredLabel, filteredInfo = loadFilterFile(filePath)
     events = []
     filteredInfo, filteredData, filteredLabel = loadFile(filePath)
-    # filteredLabel, filteredData, filteredInfo = loadFile(filePath)
     channelName = ['CH0','CH1','CH2','CH3','CH4','CH5','CH6',
                     'CH7','CH8','CH9','CH10','CH11','CH12','CH13','CH14','CH15']
     fsMne = dataParameters.Fs
     chType = 'eeg'
     mneInfo = mne.create_info(ch_names=channelName, sfreq=fsMne, ch_types=chType)
-    # mneInfo.set_montage('biosemi64')
-    transposed_data = np.transpose(filteredData[0], (1, 0))
     dataDf = pd.read_csv(Annotation)
+    annotations = []
+    onsets = []
+    durations = []
+    descriptions = []
     for _, row in dataDf.iterrows():
         if row['subjectId'] == filteredInfo[0]['subjectId']:
+            subjectId = str(row['subjectId'])
             start = int(row['start'] * row['Fs'])
             end = int(row['end'] * row['Fs'])
+            duration = row['end'] - row['start']
+            onset = row['start']
             label = row['label']
             events.append([start, 0, label])
+            onsets.append(onset)
+            durations.append(duration)
+            descriptions.append(subjectId)
+    all_annotations = mne.Annotations(onset=onsets, duration=durations, description=descriptions)
     epochs = mne.EpochsArray(filteredData, info=mneInfo, events=events)
+    epochs.set_annotations(all_annotations)
+
+    return epochs, filteredLabel[:,0]
+
+def generateFilterMneData(filePath, Annotation, lowBand, highBand):
+    '''
+    Generate the data after band filter
+    '''
+
+    events = []
+    filteredInfo, filteredData, filteredLabel = loadFile(filePath)
+    channelName = ['CH0','CH1','CH2','CH3','CH4','CH5','CH6',
+                    'CH7','CH8','CH9','CH10','CH11','CH12','CH13','CH14','CH15']
+    fsMne = dataParameters.Fs
+    chType = 'eeg'
+    mneInfo = mne.create_info(ch_names=channelName, sfreq=fsMne, ch_types=chType)
+    dataDf = pd.read_csv(Annotation)
+    annotations = []
+    onsets = []
+    durations = []
+    descriptions = []
+    for _, row in dataDf.iterrows():
+        if row['subjectId'] == filteredInfo[0]['subjectId']:
+            subjectId = str(row['subjectId'])
+            start = int(row['start'] * row['Fs'])
+            end = int(row['end'] * row['Fs'])
+            duration = row['end'] - row['start']
+            onset = row['start']
+            label = row['label']
+            events.append([start, 0, label])
+            onsets.append(onset)
+            durations.append(duration)
+            descriptions.append(subjectId)
+
+    all_annotations = mne.Annotations(onset=onsets, duration=durations, description=descriptions)
+
+    epochs = mne.EpochsArray(filteredData, info=mneInfo, events=events)
+    epochs.set_annotations(all_annotations)
     epochs.filter(l_freq=lowBand, h_freq=highBand)
-    
-    # epochs[0].plot(scalings='auto')
+
     print("123")
     return epochs, filteredLabel[:,0]
 # epochs = generateMneData('/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/MI_BCI_Data/PAT013.mat', '/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/resultStore/Standard/Annotation.csv')
+def CspFilter(outDir, filePath, outPutFolder):
+    # outPutPath = outPutFolder + ''
+    epoch = mne.read_epochs(filePath, preload=True)
+    if len(epoch.annotations) > 0:
+        firstAnnotation = epoch.annotations[0]
+        subjectId = firstAnnotation['description']
+        print("subjectId:", subjectId)
+    else:
+        print("Annotation Error.")
+    featureResult = outPutFolder + subjectId + 'cspFeatureData.csv'
+    labelsInLoop = epoch.events[:, 2]
+    csp = CSP(n_components=4, norm_trace=False)
+    csp.fit(epoch.get_data(), labelsInLoop)
+    cspFeatures = csp.transform(epoch.get_data())
+    start = [data['onset'] for data in epoch.annotations]
+    extra_info_df = pd.DataFrame({
+    'subjectId':subjectId,
+    'start_time': start,
+    'label': labelsInLoop
+    })  
+    featureDf = pd.DataFrame(cspFeatures, columns=['Feature0', 'Feature1', 'Feature2', 'Feature3'])
+    combinedDf = pd.concat([extra_info_df, featureDf], axis=1)
+    combinedDf.to_csv(featureResult, index=False)
+    
+def Csp2DFeatureGenerate(outDir, filePath, outPutDir):
+
+    df = pd.read_csv(filePath)
+    featureResult = outPutDir + df['subjectId'][0] + 'cspFeatureOut.png'
+    labelsInLoop = df['label']
+    
+    feature1 = df['Feature0']
+    feature2 = df['Feature1']
+
+    plt.figure(figsize=(10, 6))
+    plt.scatter(feature1[labelsInLoop == 0], feature2[labelsInLoop == 0], c='blue', label='Class 0', alpha=0.5)
+    plt.scatter(feature1[labelsInLoop == 1], feature2[labelsInLoop == 1], c='red', label='Class 1', alpha=0.5)
+
+    plt.xlabel('CSP Feature 1')
+    plt.ylabel('CSP Feature 2')
+    plt.title('2D Plot of CSP Features')
+    plt.legend()
+    
+    plt.savefig(featureResult)
+
+    # plt.show()
+    
 def ML_method():
     pass
 def DL_method():
     pass
 def evaluate():
     pass
+
+
+
+
+
 
 
 
