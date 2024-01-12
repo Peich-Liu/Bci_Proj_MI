@@ -16,7 +16,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 from parameterSetup import dataParameters
 
-    
+########################################
+####File Methods
 def loadFile(filePath):
     ''' 
     it's a summary of 16 channels
@@ -25,6 +26,7 @@ def loadFile(filePath):
     using trialsData[n][0][m] (len=16) to get every sample data in window 'n', sample point 'm' , 0<=m<=1535
     using trialsData[n][0][m][k] (specific number) to get sample data in 'k' channel in 'm' sample point, 0<=k<=15
     using trailsLabels[n][0] to get window's label, 0<=n<=winNum
+    maybe change the data load methods in the future
     '''
     print("loading file", filePath)
     data = scio.loadmat(filePath)
@@ -95,6 +97,21 @@ def createOriAnnotationFile(folderPath, annotationPath):
                 
                 for info in window_info:
                     writer.writerow(info)
+                    
+def loadFeature(featureDir, sub):
+    loadPath = featureDir + sub + 'cspFeatureData.csv'
+    featureDf = pd.read_csv(os.path.abspath(loadPath))
+    return featureDf
+
+def loadAllFeature(featureFile, subjects):
+    AllFeature = pd.DataFrame([])
+    for sub in subjects:
+        singleFeature = loadFeature(featureFile, sub)
+        # AllFeature.append(singleFeature)
+        AllFeature = pd.concat([AllFeature, singleFeature],axis=0)
+    return AllFeature
+########################################
+####Data Methods
 def generateMneData(filePath, Annotation, lowBand, highBand):
     '''
     Generate the data after band filter
@@ -167,7 +184,9 @@ def generateFilterMneData(filePath, Annotation, lowBand, highBand):
 
     print("123")
     return epochs, filteredLabel[:,0]
-# epochs = generateMneData('/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/MI_BCI_Data/PAT013.mat', '/Users/liu/Documents/22053 Principles of brain computer interface/miniProj/Bci_Proj_MI/resultStore/Standard/Annotation.csv')
+
+########################################
+####CSP Methods
 def CspFilter(outDir, filePath, outPutFolder):
     # outPutPath = outPutFolder + ''
     epoch = mne.read_epochs(filePath, preload=True)
@@ -211,23 +230,9 @@ def Csp2DFeatureGenerate(outDir, filePath, outPutDir):
     plt.legend()
     
     plt.savefig(featureResult)
-
-def concatenateDataFeature():
-    pass
-
-def loadFeature(featureDir, sub):
-    loadPath = featureDir + sub + 'cspFeatureData.csv'
-    featureDf = pd.read_csv(os.path.abspath(loadPath))
-    return featureDf
-
-def loadAllFeature(featureFile, subjects):
-    AllFeature = pd.DataFrame([])
-    for sub in subjects:
-        singleFeature = loadFeature(featureFile, sub)
-        # AllFeature.append(singleFeature)
-        AllFeature = pd.concat([AllFeature, singleFeature],axis=0)
-    return AllFeature
-
+    
+########################################
+####ML Methods
 def trainMlModel(X_train, y_train, MLParameters):
     if(MLParameters.modelType == 'SVM'):
         model = svm.SVC(kernel=MLParameters.SVM_kernel, C=MLParameters.SVM_C, gamma=MLParameters.SVM_gamma, probability=True)
@@ -257,7 +262,8 @@ def testML(X_test, y_test, MlModel):
     print(confusion_matrix(y_test, y_pred))
     print(classification_report(y_test, y_pred))
     return y_pred, y_probability_fin
-
+########################################
+####Evaluate Methods
 def generatePredAnnotation(OriAnnotation, y_pred, y_prob):
     pass
 def DL_method():
@@ -272,7 +278,8 @@ def evaluate():
 
 
 
-
+########################################
+####Some backup
 # def bandPass(data, lowCut, highCut, fs, order=5):
 #     nyq = 0.5 * fs
 #     low = lowCut / nyq
