@@ -10,6 +10,8 @@ import scipy.io as scio
 from scipy.linalg import eigh
 import scipy.signal as signal
 from mne.decoding import CSP
+from sklearn import svm
+from sklearn.metrics import classification_report, confusion_matrix
 
 
 from parameterSetup import dataParameters
@@ -210,9 +212,53 @@ def Csp2DFeatureGenerate(outDir, filePath, outPutDir):
     
     plt.savefig(featureResult)
 
-    # plt.show()
+def concatenateDataFeature():
+    pass
+
+def loadFeature(featureDir, sub):
+    loadPath = featureDir + sub + 'cspFeatureData.csv'
+    featureDf = pd.read_csv(os.path.abspath(loadPath))
+    return featureDf
+
+def loadAllFeature(featureFile, subjects):
+    AllFeature = pd.DataFrame([])
+    for sub in subjects:
+        singleFeature = loadFeature(featureFile, sub)
+        # AllFeature.append(singleFeature)
+        AllFeature = pd.concat([AllFeature, singleFeature],axis=0)
+    return AllFeature
+
+def trainMlModel(X_train, y_train, MLParameters):
+    if(MLParameters.modelType == 'SVM'):
+        model = svm.SVC(kernel=MLParameters.SVM_kernel, C=MLParameters.SVM_C, gamma=MLParameters.SVM_gamma, probability=True)
+        model.fit(X_train, y_train)
+    return model
+
+def quickTest(X_test, y_test, MlModel):
+    y_pred = MlModel.predict(X_test)
+    print(confusion_matrix(y_test, y_pred))
+    print(classification_report(y_test, y_pred))
+
+def testML(X_test, y_test, MlModel):
     
-def ML_method():
+    y_pred = MlModel.predict(X_test)
+    y_probability = MlModel.predict_proba(X_test)
+    y_pred = (y_probability[:, 1] < 0.5).astype(int)
+    
+    #pick only probability of predicted class
+    y_probability_fin=np.zeros(len(y_pred))
+    indx=np.where(y_pred==1)
+    if (len(indx[0])!=0):
+        y_probability_fin[indx]=y_probability[indx,1]
+
+    indx = np.where(y_pred == 0)
+    if (len(indx[0])!=0):
+        y_probability_fin[indx] = y_probability[indx,0]
+    print(confusion_matrix(y_test, y_pred))
+    print(classification_report(y_test, y_pred))
+    return y_pred, y_probability_fin
+
+def generatePredAnnotation(OriAnnotation, y_pred, y_prob):
     pass
 def DL_method():
     pass

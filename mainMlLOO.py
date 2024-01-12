@@ -5,13 +5,13 @@ import mne
 
 from mne.decoding import CSP
 
-from MethodLib import loadFile, loadAllFile, createOriAnnotationFile, generateMneData, Csp2DFeatureGenerate, CspFilter, generateFilterMneData
-from parameterSetup import dataParameters, filterParameter
+# from MethodLib import loadFile, loadAllFile, createOriAnnotationFile, generateMneData, Csp2DFeatureGenerate, CspFilter, generateFilterMneData, loadAllFeature, trainMlModel
+from MethodLib import *
+from parameterSetup import dataParameters, filterParameter, MLParameters
 import matplotlib.pyplot as plt
 
-from sklearn import svm
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix
+
 ########################################
 #Folder Create
 dataDir = 'MI_BCI_Data'
@@ -49,7 +49,7 @@ os.makedirs(os.path.dirname(filterDir), exist_ok=True)
 #     epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
 #     epochsFilter.save(os.path.join(filterDir, f'filtered_{fileName}.fif'), overwrite=True)
 ########################################
-###Spatial Filters
+###Spatial Filters(Feature Extraction)
 ##create folder
 featureOri = featureDir + 'FeatureOri/'
 featureDirBand = featureDir + 'FeatureAfterBP/'
@@ -71,29 +71,62 @@ os.makedirs(os.path.dirname(featureDirBand), exist_ok=True)
 #     CspFilter(outDir, filePathInLoopBand, featureDirBand)
 ########################################
 ####CSP visualization
-##Generate the Csp Result
+##Generate the Csp Result Folder
 cspOriVisual = visualDir + 'Ori/'
 cspBandVisual = visualDir + 'AfterBP/'
 os.makedirs(os.path.dirname(cspOriVisual), exist_ok=True)
 os.makedirs(os.path.dirname(cspBandVisual), exist_ok=True)
-##Generate the Original Signal Result
-for file in os.listdir(featureOri):
-    fileInVisual = os.path.abspath(os.path.join(featureOri,file))
-    Csp2DFeatureGenerate(outDir, fileInVisual, cspOriVisual)
-##Generate the Band Pass Signal Result
-for file in os.listdir(featureDirBand):
-    fileInVisual = os.path.abspath(os.path.join(featureDirBand,file))
-    Csp2DFeatureGenerate(outDir, fileInVisual, cspBandVisual)
 ########################################
-#classification
+# ##Generate the Original Signal Result
+# for file in os.listdir(featureOri):
+#     fileInVisual = os.path.abspath(os.path.join(featureOri,file))
+#     Csp2DFeatureGenerate(outDir, fileInVisual, cspOriVisual)
+# ##Generate the Band Pass Signal Result
+# for file in os.listdir(featureDirBand):
+#     fileInVisual = os.path.abspath(os.path.join(featureDirBand,file))
+#     Csp2DFeatureGenerate(outDir, fileInVisual, cspBandVisual)
+########################################
+##load All Feature
 dataParameters.subject = [os.path.splitext(fileName)[0] for fileName in os.listdir(dataDir)]
-
-X_train, X_test, y_train, y_test = train_test_split(cspFeatures, dataLabel, test_size=0.2, random_state=42)
-clf = svm.SVC(kernel='linear')
-clf.fit(X_train, y_train)
-y_pred = clf.predict(X_test)
-
-print(confusion_matrix(y_test, y_pred))
-print(classification_report(y_test, y_pred))
+dataAllFeatureOri = loadAllFeature(featureOri, dataParameters.subject)
+dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
+########################################
+##classification
+NonFeatureColumns= ['subjectId', 'start_time', 'label']
+# ##classification for Ori Data
+# for subIdx, sub in enumerate(dataParameters.subject):
+#     trainFeatureOriFile = dataAllFeatureOri[dataAllFeatureOri['subjectId'] != sub]
+#     testFeatureOriFile = dataAllFeatureOri[dataAllFeatureOri['subjectId'] == sub]
+#     trainFeatureOri = trainFeatureOriFile.loc[:,~trainFeatureOriFile.columns.isin(NonFeatureColumns)]
+#     testFeatureOri = testFeatureOriFile.loc[:,~testFeatureOriFile.columns.isin(NonFeatureColumns)]
+#     ## data spilt
+#     X_train = trainFeatureOri.to_numpy()
+#     y_train = trainFeatureOriFile['label'].to_numpy()
+#     X_test = testFeatureOri.to_numpy()
+#     y_test = testFeatureOriFile['label'].to_numpy()
+#     ## train model
+#     ## SVM train 
+#     MLParameters.modelType = 'SVM'
+#     MlModel = trainMlModel(X_train, y_train, MLParameters)
+#     ## ML test
+#     testML(X_test, y_test, MlModel)
+##classification for Band Data
+for subIdx, sub in enumerate(dataParameters.subject):
+    trainFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] != sub]
+    testFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] == sub]
+    trainFeatureOri = trainFeatureOriFile.loc[:,~trainFeatureOriFile.columns.isin(NonFeatureColumns)]
+    testFeatureOri = testFeatureOriFile.loc[:,~testFeatureOriFile.columns.isin(NonFeatureColumns)]
+    ## data spilt
+    X_train = trainFeatureOri.to_numpy()
+    y_train = trainFeatureOriFile['label'].to_numpy()
+    X_test = testFeatureOri.to_numpy()
+    y_test = testFeatureOriFile['label'].to_numpy()
+    ## train model
+    ## SVM train 
+    MLParameters.modelType = 'SVM'
+    MlModel = trainMlModel(X_train, y_train, MLParameters)
+    ## ML test - Generate the predict Annotation
+    yPred, yProb = testML(X_test, y_test, MlModel)
+    
 ########################################
 #evaluate

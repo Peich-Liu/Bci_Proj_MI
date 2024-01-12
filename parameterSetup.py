@@ -13,3 +13,10 @@ class filterParameter:
     order = 5
     Fs = 256
 
+class MLParameters:
+    modelType = 'SVM'
+    
+    #SVM parameters
+    SVM_kernel = 'linear'  # 'linear', 'rbf','poly'
+    SVM_C = 1  # 1,100,1000
+    SVM_gamma = 'auto' # 0  # 0,10,100
