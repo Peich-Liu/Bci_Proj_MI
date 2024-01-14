@@ -1,19 +1,23 @@
 import os
 import csv
 import mne
+import torch
+
 import numpy as np
 import pandas as pd 
 import matplotlib.pyplot as plt
-
 
 import scipy.io as scio
 from scipy.linalg import eigh
 import scipy.signal as signal
 from mne.decoding import CSP
 from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
+from torch import nn
+from torch.utils.data import Dataset, DataLoader
 
-
+from architecture import CNNnet
 from parameterSetup import dataParameters
 
 ########################################
@@ -110,6 +114,15 @@ def loadAllFeature(featureFile, subjects):
         # AllFeature.append(singleFeature)
         AllFeature = pd.concat([AllFeature, singleFeature],axis=0)
     return AllFeature
+
+def loadCspSignal(filePath):
+    dataLoad = scio.loadmat(filePath)
+    signal = dataLoad['cspSignal']
+    subjectId = dataLoad['subjectId']
+    startTime = dataLoad['startTime']
+    signalLabel = dataLoad['label']
+    return signal, subjectId, startTime, signalLabel
+
 ########################################
 ####Data Methods
 def generateMneData(filePath, Annotation, lowBand, highBand):
@@ -188,6 +201,29 @@ def generateFilterMneData(filePath, Annotation, lowBand, highBand):
 ########################################
 ####CSP Methods
 def CspFilter(outDir, filePath, outPutFolder):
+#generate original csp signal
+    # outPutPath = outPutFolder + ''
+    epoch = mne.read_epochs(filePath, preload=True)
+    if len(epoch.annotations) > 0:
+        firstAnnotation = epoch.annotations[0]
+        subjectId = firstAnnotation['description']
+        print("subjectId:", subjectId)
+    else:
+        print("Annotation Error.")
+    # featureResult = outPutFolder + subjectId + 'cspFeatureData.csv'
+    featureResult = outPutFolder + subjectId + 'cspFeatureData.mat'
+    labelsInLoop = epoch.events[:, 2]
+    csp = CSP(n_components=4, norm_trace=False, transform_into='csp_space')
+    csp.fit(epoch.get_data(), labelsInLoop)
+    cspSignal = csp.transform(epoch.get_data())
+    start = [data['onset'] for data in epoch.annotations]
+    scio.savemat(featureResult, {'cspSignal': cspSignal,
+                                        'subjectId':subjectId,
+                                        'startTime': start,
+                                        'label': labelsInLoop
+                                        })
+
+def extractCspFeature(outDir, filePath, outPutFolder):
     # outPutPath = outPutFolder + ''
     epoch = mne.read_epochs(filePath, preload=True)
     if len(epoch.annotations) > 0:
@@ -211,6 +247,7 @@ def CspFilter(outDir, filePath, outPutFolder):
     combinedDf = pd.concat([extra_info_df, featureDf], axis=1)
     combinedDf.to_csv(featureResult, index=False)
     
+
 def Csp2DFeatureGenerate(outDir, filePath, outPutDir):
 
     df = pd.read_csv(filePath)
@@ -230,6 +267,25 @@ def Csp2DFeatureGenerate(outDir, filePath, outPutDir):
     plt.legend()
     
     plt.savefig(featureResult)
+
+def oriCspAnalysis(outDir, filePath, outPutDir):
+    cspSignal, subjectId, startTime, signalLabel = loadCspSignal(filePath)
+    numWin = cspSignal.shape[0]
+    numSample = cspSignal.shape[2]
+    
+    plt.figure()
+    for i in range(2):
+        full_signal = np.concatenate([cspSignal[j, i, :] for j in range(numWin)])
+
+        plt.subplot(2, 1, i + 1)
+        plt.plot(range(len(full_signal)), full_signal)
+        plt.title(f'CSP Channel {i + 1}')
+        plt.xlabel('Sample')
+        plt.ylabel('Amplitude')
+        plt.ylim([-10, 10])
+
+    plt.tight_layout()
+    plt.show()
     
 ########################################
 ####ML Methods
@@ -237,6 +293,9 @@ def trainMlModel(X_train, y_train, MLParameters):
     if(MLParameters.modelType == 'SVM'):
         model = svm.SVC(kernel=MLParameters.SVM_kernel, C=MLParameters.SVM_C, gamma=MLParameters.SVM_gamma, probability=True)
         model.fit(X_train, y_train)
+    elif(MLParameters.modelType == 'RF'):
+        model = RandomForestClassifier(random_state=0, n_estimators=MLParameters.RandomForest_n_estimators, criterion=MLParameters.DecisionTree_criterion )
+        model = model.fit(X_train, y_train)
     return model
 
 def quickTest(X_test, y_test, MlModel):
@@ -259,11 +318,131 @@ def testML(X_test, y_test, MlModel):
     indx = np.where(y_pred == 0)
     if (len(indx[0])!=0):
         y_probability_fin[indx] = y_probability[indx,0]
+    # print("y_probability",y_probability)
     print(confusion_matrix(y_test, y_pred))
     print(classification_report(y_test, y_pred))
     return y_pred, y_probability_fin
 ########################################
+####Deep Learning
+def DLTraining(trainLoader, learningRate):
+    model = CNNnet(dataParameters.channelLen, 2)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learningRate)
+    for epoch in range(15):
+        for data, label in trainLoader:
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, label)
+            loss.backward()
+            optimizer.step()
+        print(f'Epoch {epoch+1}, Loss: {loss.item()}')
+    return model
+
+def DLTest(model, testLoader):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data, label in testLoader:
+            outputs = model(data)
+            _, predicted = torch.max(outputs.data, 1)
+            total += label.size(0)
+            correct += (predicted == label).sum().item()
+        accuracy = 100 * correct / total
+        print(f'Test Accuracy: {accuracy:.2f}%')
+
+        print("123")
+        
+########################################
 ####Evaluate Methods
+def oriVarStemFigure(standDir, subjects,outPutDir):
+    # for filePath in os.listdir(standDir):
+    for sub in subjects:
+        filePath = 'original_' + sub + '.mat.fif'
+        standFileInLoop = standDir + filePath
+        standEpochs = mne.read_epochs(os.path.abspath(standFileInLoop), preload=True)
+        # variances_raw = np.var(standEpochs.get_data(), axis=(0, 2))
+        data = standEpochs.get_data()
+        
+        events = standEpochs.events
+        labels = events[:, -1] 
+        mean_var_class_0 = []
+        mean_var_class_1 = []
+        stemResult = outPutDir +'stemOri_'+ sub + '.png'
+        for ch in range(dataParameters.channelLen):
+            dataLabel0 = data[labels==0]
+            dataLabel1 = data[labels==1]
+            
+            chData0 = dataLabel0[:,ch,:]
+            chData1 = dataLabel1[:,ch,:]
+            
+            variances_label0 = np.var(chData0, axis=1)
+            variances_label1 = np.var(chData1, axis=1)
+            mean_var_class_0.append(np.mean(variances_label0, axis=0))
+            mean_var_class_1.append(np.mean(variances_label1, axis=0))
+        plt.figure()
+        plt.stem( mean_var_class_0, 'b',label='Label 0')
+        plt.stem( mean_var_class_1, 'r',label='Label 1')
+        plt.xlabel('Channels')
+        plt.ylabel('Variance')
+        # plt.title('Variance by Label')
+        plt.title(filePath)
+        plt.legend()
+        plt.savefig(stemResult)
+        # plt.show()
+
+
+def cspVarStemFigure(cspDir, filePathCsp, NonFeatureColumns, outPut):
+
+    cspFileInLoop = cspDir + filePathCsp
+    cspSignal, subjectId, startTime, signalLabel = loadCspSignal(cspFileInLoop)
+    
+    labels = signalLabel
+    mean_var_class_0 = []
+    mean_var_class_1 = []
+    for ch in range(4):
+        dataLabel0 = cspSignal[labels[0]==0]
+        dataLabel1 = cspSignal[labels[0]==1]
+        
+        chData0 = dataLabel0[:,ch,:]
+        chData1 = dataLabel1[:,ch,:]
+        
+        variances_label0 = np.var(chData0, axis=1)
+        variances_label1 = np.var(chData1, axis=1)
+        mean_var_class_0.append(np.mean(variances_label0, axis=0))
+        mean_var_class_1.append(np.mean(variances_label1, axis=0))
+    plt.figure()
+    plt.stem( mean_var_class_0, 'b',label='Label 0')
+    plt.stem( mean_var_class_1, 'r',label='Label 1')
+    plt.xlabel('Channels')
+    plt.ylabel('Variance')
+    plt.title('Variance by Label')
+    # plt.title(filePath)
+    plt.legend()
+    plt.show()
+    # stemResult = outPutDir +'stemOri_'+ sub + '.png'
+    
+    
+    
+    
+    # cspFeatureDf = pd.read_csv(os.path.abspath(cspFileInLoop))
+    # stemResult = outPut +'stemCspFeature_'+ cspFeatureDf['subjectId'][0] + '.png'
+    # for csp in cspFeatureDf.loc[:,~cspFeatureDf.columns.isin(NonFeatureColumns)]:
+    #     cspFeature0 = cspFeatureDf[cspFeatureDf['label'] == 0][csp]
+    #     cspFeature1 = cspFeatureDf[cspFeatureDf['label'] == 1][csp]
+    #     xLabel = ['Feature0', 'Feature1', 'Feature2', 'Feature3']
+    #     cspVar0.append(np.var(cspFeature0))
+    #     cspVar1.append(np.var(cspFeature1))
+    # plt.figure()
+    # plt.stem(xLabel,cspVar0,'b',label='label0')
+    # plt.stem(xLabel,cspVar1,'r',label='label1')
+    # plt.title('CSP Feature in Different Label')
+    # plt.xlabel('Feature')
+    # plt.ylabel('CSP Feature Value')
+    # plt.legend()
+    # # plt.show()
+    # plt.savefig(stemResult)
+    
 def generatePredAnnotation(OriAnnotation, y_pred, y_prob):
     pass
 def DL_method():

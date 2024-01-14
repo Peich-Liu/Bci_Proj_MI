@@ -20,3 +20,9 @@ class MLParameters:
     SVM_kernel = 'linear'  # 'linear', 'rbf','poly'
     SVM_C = 1  # 1,100,1000
     SVM_gamma = 'auto' # 0  # 0,10,100
+    
+    #DecisionTree and random forest parameters
+    DecisionTree_criterion = 'entropy'  # 'gini', 'entropy'
+    DecisionTree_splitter = 'best'  # 'best','random'
+    DecisionTree_max_depth = 0  # 0, 2, 5,10,20
+    RandomForest_n_estimators = 100 #10,50, 100,250
