@@ -13,7 +13,7 @@ import scipy.signal as signal
 from mne.decoding import CSP
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, precision_score, recall_score, f1_score
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 
@@ -328,7 +328,7 @@ def DLTraining(trainLoader, learningRate):
     model = CNNnet(dataParameters.channelLen, 2)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learningRate)
-    for epoch in range(15):
+    for epoch in range(25):
         for data, label in trainLoader:
             optimizer.zero_grad()
             output = model(data)
@@ -342,17 +342,25 @@ def DLTest(model, testLoader):
     model.eval()
     correct = 0
     total = 0
+    all_labels = []
+    all_predictions = []
     with torch.no_grad():
         for data, label in testLoader:
             outputs = model(data)
             _, predicted = torch.max(outputs.data, 1)
             total += label.size(0)
             correct += (predicted == label).sum().item()
-        accuracy = 100 * correct / total
-        print(f'Test Accuracy: {accuracy:.2f}%')
+            all_labels.extend(label.numpy())
+            all_predictions.extend(predicted.numpy())
+    return all_labels, all_predictions, correct, total
 
-        print("123")
-        
+def DLevaluate(all_labels, all_predictions, correct, total):
+    precision = precision_score(all_labels, all_predictions, average='binary')  
+    recall = recall_score(all_labels, all_predictions, average='binary')       
+    f1 = f1_score(all_labels, all_predictions, average='binary')        
+    accuracy = correct / total
+    return accuracy, precision, recall, f1
+
 ########################################
 ####Evaluate Methods
 def oriVarStemFigure(standDir, subjects,outPutDir):

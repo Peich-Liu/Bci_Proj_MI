@@ -97,34 +97,30 @@ os.makedirs(os.path.dirname(cspBandVisual), exist_ok=True)
 # ##load All Feature
 dataParameters.subject = [os.path.splitext(fileName)[0] for fileName in os.listdir(dataDir)]
 # dataAllFeatureOri = loadAllFeature(featureOri, dataParameters.subject)
-# dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
+dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
 # ########################################
 # ##classification
 NonFeatureColumns= ['subjectId', 'start_time', 'label']
 # # ##classification for Ori Data
-########################################
-# #### Machine Learning - SVM
-# # ##classification for Band Data
-# for subIdx, sub in enumerate(dataParameters.subject):
-#     trainFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] != sub]
-#     testFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] == sub]
-#     trainFeatureOri = trainFeatureOriFile.loc[:,~trainFeatureOriFile.columns.isin(NonFeatureColumns)]
-#     testFeatureOri = testFeatureOriFile.loc[:,~testFeatureOriFile.columns.isin(NonFeatureColumns)]
-#     ## data spilt
-#     X_train = trainFeatureOri.to_numpy()
-#     y_train = trainFeatureOriFile['label'].to_numpy()
-#     X_test = testFeatureOri.to_numpy()
-#     y_test = testFeatureOriFile['label'].to_numpy()
-#     # train model
-#     # SVM model
-#     MLParameters.modelType = 'SVM'
-#     SVMModel = trainMlModel(X_train, y_train, MLParameters)
-#     yPredSVM, yProbSVM = testML(X_test, y_test, SVMModel)
-#     print("123")
-#     # ## RF model
-#     # MLParameters.modelType = 'RF'
-#     # RFModel = trainMlModel(X_train, y_train, MLParameters)
-#     # yPredRF, yProbRF = testML(X_test, y_test, RFModel)
+#######################################
+#### Machine Learning - SVM
+# ##classification for Band Data
+for subIdx, sub in enumerate(dataParameters.subject):
+    trainFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] != sub]
+    testFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] == sub]
+    trainFeatureOri = trainFeatureOriFile.loc[:,~trainFeatureOriFile.columns.isin(NonFeatureColumns)]
+    testFeatureOri = testFeatureOriFile.loc[:,~testFeatureOriFile.columns.isin(NonFeatureColumns)]
+    ## data spilt
+    X_train = trainFeatureOri.to_numpy()
+    y_train = trainFeatureOriFile['label'].to_numpy()
+    X_test = testFeatureOri.to_numpy()
+    y_test = testFeatureOriFile['label'].to_numpy()
+    # train model
+    # SVM model
+    MLParameters.modelType = 'SVM'
+    SVMModel = trainMlModel(X_train, y_train, MLParameters)
+    yPredSVM, yProbSVM = testML(X_test, y_test, SVMModel)
+    print("123")
 ########################################
 # #### Deep Learning - CNN
 learningRate = 0.0002
@@ -132,7 +128,7 @@ for subIdx, sub in enumerate(dataParameters.subject):
     testSubject = sub
     testFile = filterDir + 'filtered_' +sub + '.mat.fif'
     # testFile = standDir + 'original_' +sub + '.mat.fif'
-    
+
     trainSubjects = [p for p in dataParameters.subject if p != sub]
     testEpoch = mne.read_epochs(testFile, preload=True)
     trainSignal = []
@@ -142,6 +138,7 @@ for subIdx, sub in enumerate(dataParameters.subject):
         trainEpoch = mne.read_epochs(trainFile, preload=True)
         trSignal = trainEpoch.get_data()
         trSignalLabel = trainEpoch.events[:, 2]
+
 
         trainSignal.extend(trSignal)
         trainLabels.extend(trSignalLabel)
@@ -160,9 +157,9 @@ for subIdx, sub in enumerate(dataParameters.subject):
     testLoader = DataLoader(testData, batch_size=32, shuffle=True)
     #Training
     Model = DLTraining(trainLoader, learningRate)
-    
     #Test
-    DLTest(Model, testLoader)
+    all_labels, all_predictions, correct, total = DLTest(Model, testLoader)
+    accuracy, precision, recall, f1 = DLevaluate(all_labels, all_predictions, correct, total)
 ########################################
 # #### Evaluate
 oriStemDir = cspBandVisual + 'Stem/'
@@ -172,5 +169,9 @@ os.makedirs(os.path.dirname(cspStemDir), exist_ok=True)
 # ########################################
 for filePathCsp in os.listdir(cspDir):
     cspVarStemFigure(cspDir, filePathCsp, NonFeatureColumns, cspStemDir)
+
+print("123")
+
+
 ## ML evaluate
 ##
