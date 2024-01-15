@@ -320,8 +320,9 @@ def testML(X_test, y_test, MlModel):
         y_probability_fin[indx] = y_probability[indx,0]
     # print("y_probability",y_probability)
     print(confusion_matrix(y_test, y_pred))
+    report = classification_report(y_test, y_pred, output_dict=True)
     print(classification_report(y_test, y_pred))
-    return y_pred, y_probability_fin
+    return y_pred, y_probability_fin, report
 ########################################
 ####Deep Learning
 def DLTraining(trainLoader, learningRate):
@@ -428,7 +429,26 @@ def cspVarStemFigure(cspDir, filePathCsp, NonFeatureColumns, outPut):
     # plt.title(filePath)
     plt.legend()
     plt.show()
-    # stemResult = outPutDir +'stemOri_'+ sub + '.png'
+
+def generateClassifyRes(y_test, y_pred, subID):
+    report = classification_report(y_test, y_pred, output_dict=True)
+    sen0 = report['0']['recall']
+    sen1 = report['1']['recall']
+    prec0 = report['0']['precision']
+    prec1 = report['1']['precision']
+    f1_0 = report['0']['f1-score']
+    f1_1 = report['1']['f1-score']
+    acc = report['accuracy']
+    result = {'subId':subID,
+                'sen0':sen0,
+                'sen1':sen1,
+                'prec0':prec0,
+                'prec1':prec1,
+                'f1_0':f1_0,
+                'f1_1':f1_1,
+                'acc':acc              
+                }
+    return result
     
     
     
@@ -450,7 +470,7 @@ def cspVarStemFigure(cspDir, filePathCsp, NonFeatureColumns, outPut):
     # plt.legend()
     # # plt.show()
     # plt.savefig(stemResult)
-    
+
 def generatePredAnnotation(OriAnnotation, y_pred, y_prob):
     pass
 def DL_method():
