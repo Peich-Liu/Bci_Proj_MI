@@ -168,20 +168,13 @@ for subIdx, sub in enumerate(dataParameters.subject):
     all_predictionsCNN = []
     all_labelsCNN = []
     testSubject = sub
-    runBand = filterDir + 'filtered_' +sub + '.mat.fif'
-    runOri = standDir + 'original_' +sub + '.mat.fif'
-    
+    # runBand = filterDir + 'filtered_' +sub + '.mat.fif'
+    # runOri = standDir + 'original_' +sub + '.mat.fif'
     runMu = filterDir + 'Mu_' +sub + '.mat.fif'
     runBeta = filterDir + 'Beta_' +sub + '.mat.fif'
-    # testFile = standDir + 'original_' +sub + '.mat.fif'
-    # trainSubjects = [p for p in dataParameters.subject if p != sub]
-    # runEpoch = mne.read_epochs(runFile, preload=True)
-    # runSignal = runEpoch.get_data()
     
     runEpochMu = mne.read_epochs(runMu, preload=True)
     runEpochBeta = mne.read_epochs(runBeta, preload=True)
-    # runEpochMu = mne.read_epochs(runBand, preload=True)
-    # runEpochBeta = mne.read_epochs(runOri, preload=True)
     runSignalMu = runEpochMu.get_data()
     runSignalBeta = runEpochBeta.get_data()
     
@@ -196,29 +189,15 @@ for subIdx, sub in enumerate(dataParameters.subject):
         if cv == 0:
             trainData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu.events[:halfLen,2])
             testData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu.events[halfLen:, 2])
-            # trainSignal = runSignal[:halfLen,:,:]
-            # trainLabels = runEpoch.events[:halfLen,2]
-            # testSignal = runSignal[halfLen:, :, :]
-            # testSignalLabel = runEpoch.events[halfLen:, 2]
+
         elif cv == 1:
             testData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu.events[:halfLen,2])
             trainData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu.events[halfLen:, 2])
-            # trainSignal = runSignal[halfLen:,:,:]
-            # trainLabels = runEpoch.events[halfLen:,2]
-            # testSignal = runSignal[:halfLen, :, :]
-            # testSignalLabel = runEpoch.events[:halfLen, 2]
+
         print("123")
         #train data
-        # trainTensor = torch.tensor(trainSignal, dtype=torch.float32)
-        # trainLabelsTensor = torch.tensor(trainLabels, dtype=torch.long)
-        # trainData = TensorDataset(trainTensor, trainLabelsTensor)
-        # trainLoader = DataLoader(trainData, batch_size=32, shuffle=True)
         trainLoader = DataLoader(trainData, batch_size=32, shuffle=True)
         # #test data
-        # testTensor = torch.tensor(testSignal, dtype=torch.float32)
-        # testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
-        # testData = TensorDataset(testTensor, testLabelsTensor)
-        # testLoader = DataLoader(testData, batch_size=32, shuffle=True)
         testLoader = DataLoader(testData, batch_size=32, shuffle=True)
         
         #Training

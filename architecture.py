@@ -27,10 +27,6 @@ class NeuralNetworkStream(nn.Module):
         self.flatten = nn.Flatten()
         self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
 
-        
-
-
-
     def forward(self, x):
         x = self.conv0(x)
         x = self.conv1(x)
@@ -57,8 +53,6 @@ class MultiStreamEEGNet(nn.Module):
         mu_output = self.streams[0](mu_input)
         beta_output = self.streams[1](beta_input)
         combined = torch.cat([mu_output, beta_output], dim=-1)
-        # print(combined.shape)
-        # logits = nn.functional.log_softmax(self.classifier(combined),dim=1)
         x = self.classifier(combined) 
         x = x = torch.sigmoid(x)  
         return x

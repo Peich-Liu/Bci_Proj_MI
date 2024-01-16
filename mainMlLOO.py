@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from MethodLib import *
 from parameterSetup import dataParameters, filterParameter, MLParameters
-from architecture import CNNnet
+from architecture import *
 
 
 
@@ -140,32 +140,45 @@ for subIdx, sub in enumerate(dataParameters.subject):
     # testFile = standDir + 'original_' +sub + '.mat.fif'
 
     trainSubjects = [p for p in dataParameters.subject if p != sub]
-    testEpoch = mne.read_epochs(testFile, preload=True)
+    testMu = filterDir + 'Mu_' +testSubject + '.mat.fif'
+    testBeta = filterDir + 'Beta_' +testSubject + '.mat.fif'
+    testEpochMu = mne.read_epochs(testMu, preload=True)
+    testEpochBeta = mne.read_epochs(testBeta, preload=True)
+    testSignalMu = testEpochMu.get_data()
+    testSignalBeta = testEpochBeta.get_data()
+    
     trainSignal = []
     trainLabels = []
+    allTrainSignalMu = []
+    allTrainSignalBeta = []
     for trSub in trainSubjects:
-        trainFile = filterDir + 'filtered_' + trSub + '.mat.fif'
-        trainEpoch = mne.read_epochs(trainFile, preload=True)
-        trSignal = trainEpoch.get_data()
-        trSignalLabel = trainEpoch.events[:, 2]
-
-
+        trainMu = filterDir + 'Mu_' +trSub + '.mat.fif'
+        trainBeta = filterDir + 'Beta_' +trSub + '.mat.fif'
+        trainEpochMu = mne.read_epochs(trainMu, preload=True)
+        trainEpochBeta = mne.read_epochs(trainBeta, preload=True)
+        trainSignalMu = trainEpochMu.get_data()
+        trainSignalBeta = trainEpochBeta.get_data()
+        # trainFile = filterDir + 'filtered_' + trSub + '.mat.fif'
+        # trainEpoch = mne.read_epochs(trainFile, preload=True)
+        # trSignal = trainEpoch.get_data()
+        # trSignalLabel = trainEpoch.events[:, 2]
         # trainSignal.extend(trSignal.transpose(0,2,1))
-        trainSignal.extend(trSignal)
-        trainLabels.extend(trSignalLabel)
+        allTrainSignalMu.extend(trainSignalMu)
+        allTrainSignalBeta.extend(trainSignalBeta)
     #train data
-    trainTensor = torch.tensor(trainSignal, dtype=torch.float32)
-    trainLabelsTensor = torch.tensor(trainLabels, dtype=torch.long)
-    trainData = TensorDataset(trainTensor, trainLabelsTensor)
+    trainData = DLSignal(allTrainSignalMu, allTrainSignalBeta, trainEpochMu.events[:, 2])
     trainLoader = DataLoader(trainData, batch_size=32, shuffle=True)
-
+    
     # #test data
-    testSignal = testEpoch.get_data()
-    testSignalLabel = testEpoch.events[:, 2]
-    testTensor = torch.tensor(testSignal, dtype=torch.float32)
-    testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
-    testData = TensorDataset(testTensor, testLabelsTensor)
+    testData = DLSignal(testSignalMu, testSignalBeta, testEpochMu.events[:, 2])
     testLoader = DataLoader(testData, batch_size=32, shuffle=True)
+    # testSignal = testEpoch.get_data()
+    # testSignalLabel = testEpoch.events[:, 2]
+    # testTensor = torch.tensor(testSignal, dtype=torch.float32)
+    # testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
+    # testData = TensorDataset(testTensor, testLabelsTensor)
+    # testLoader = DataLoader(testData, batch_size=32, shuffle=True)
+    # testData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu.events[halfLen:, 2])
     #Training
     Model = DLTraining(trainLoader, learningRate)
     #Test
