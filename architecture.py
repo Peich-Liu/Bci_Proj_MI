@@ -1,48 +1,84 @@
 import torch 
 from torch import nn
 import torch.nn.functional as F
-class CNNnet(nn.Module):
-    def __init__(self, channel, num_classes):
-        super(CNNnet, self).__init__()
-        self.time_conv = nn.Conv1d(in_channels=channel, out_channels=32, kernel_size=3, padding=1)
-        self.space_conv = nn.Conv1d(in_channels=32, out_channels=32, kernel_size=channel, padding=0)
+class DLSignal():
+    def __init__(self, mu, beta, label):
+        self.mu = mu
+        self.beta = beta
+        self.labels = label
         
-        self.conv1 = nn.Conv1d(channel, 32, kernel_size=85, stride=1) #16
-        self.conv2 = nn.Conv1d(32, 32, kernel_size=10, stride=1) #16*32
+    def __len__(self):
+        return len(self.labels)
+    
+    def __getitem__(self, idx):
+        muSignal = self.mu[idx]
+        betaSignal = self.beta[idx]
+        labelOutput = self.labels[idx]
+        return muSignal, betaSignal, labelOutput
+
+class NeuralNetworkStream(nn.Module):
+    def __init__(self, n_channels, sample_length):
+        super(NeuralNetworkStream, self).__init__()
+        self.pre_conv0 = nn.Conv1d(n_channels, n_channels, kernel_size=2, stride=2 ,groups=n_channels)
+        self.pre_conv1 = nn.Conv1d(n_channels, n_channels, kernel_size=2, stride=2 ,groups=n_channels)
+        self.pre_conv2 = nn.Conv1d(n_channels, n_channels, kernel_size=2, stride=2 ,groups=n_channels)
+        self.pre_conv3 = nn.Conv1d(n_channels, n_channels, kernel_size=2, stride=2 ,groups=n_channels)
         
-        self.bn1 = nn.BatchNorm1d(16)
-        self.bn2 = nn.BatchNorm1d(32)
-
-        self.act = nn.LeakyReLU(0.01)        
-        self.fc1 = nn.Linear(24320, 4096)
-        self.fc2 = nn.Linear(4096,2048)
-        self.fc3 = nn.Linear(2048,num_classes)
-
-        self.drop = nn.Dropout(0.3)
-        self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
-        self.flatten = nn.Flatten()
-
-        # self.pooling = nn.MaxPool1d(kernel_size=2, stride=2)
+        self.sequence1 =  self.Sequential(
+            nn.Conv1d(n_channels, 32, kernel_size=3, padding=1),
+            nn.BatchNorm1d(32),
+            nn.LeakyReLU(0.01)
+        )
         
+        self.sequence2 =  self.Sequential(
+            nn.Conv1d(n_channels, 32, kernel_size=3, padding=1),
+            nn.BatchNorm1d(32),
+            nn.LeakyReLU(0.01)
+        )
+                
+        self.sequence3 =  self.Sequential(
+            nn.Conv1d(n_channels, 32, kernel_size=3, padding=1),
+            nn.BatchNorm1d(32),
+            nn.LeakyReLU(0.01)
+        )
+
+
     def forward(self, x):
+        x0 = self.pre_conv0(x)
+        pre_x1 = self.pre_conv1(x0)
+        pre_x2 = self.pre_conv2(pre_x1)
+        pre_x3 = self.pre_conv3(pre_x2)
+        
+        x1 = self.sequence0(pre_x1).mean(dim=(-1))
+        x2 = self.sequence1(pre_x2).mean(dim=(-1))
+        x3 = self.sequence1(pre_x3).mean(dim=(-1))
+        
+        final = torch.cat([x1,x2,x3],1)
+        
+        return final
+    
+class MultiStreamEEGNet(nn.Module):
+    def __init__(self, num_bands, input_channels, sample_length, num_classes):
+        super(MultiStreamEEGNet, self).__init__()
 
-        # x = self.conv1(x)
-        # x = self.conv2(x)
-        # x = self.bn2(x)
-        x = F.relu(self.time_conv(x))
-        x = F.relu(self.space_conv(x))
-        
-        # x = self.space_conv(x)
-        # x = self.act(x)
-        # x = x.view(x.size(0), -1)
-        
-        x = self.pool(x) 
-        self.flatten = nn.Flatten()
-        x = self.flatten(x)
-        x = self.fc1(x)
-        x = self.fc2(x)
-        x = self.fc3(x)
-        # x = self.drop(x)
-        x = torch.sigmoid(x)       
-        
-        return x
+        self.streams = nn.ModuleList([
+            NeuralNetworkStream(input_channels, sample_length) for _ in range(num_bands)
+        ])
+
+        self.classifier = nn.Linear(64 * sample_length // 2 * num_bands, num_classes)
+
+    def forward(self, mu_input, beta_input):
+        mu_output = self.streams[0](mu_input)
+        beta_output = self.streams[1](beta_input)
+        combined = torch.cat([mu_output, beta_output], dim=-1)
+        logits = self.classifier(combined)
+        return logits
+    # def forward(self, *inputs):
+
+    #     outputs = []
+    #     for i, input in enumerate(inputs):
+    #         outputs.append(self.streams[i](input))
+
+    #     combined = torch.cat(outputs, dim=-1)
+    #     logits = self.classifier(combined)
+    #     return logits

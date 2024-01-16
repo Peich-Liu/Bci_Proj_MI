@@ -14,7 +14,7 @@ from sklearn.model_selection import cross_val_score, StratifiedKFold
 
 from MethodLib import *
 from parameterSetup import dataParameters, filterParameter, MLParameters
-from architecture import CNNnet
+from architecture import *
 
 
 
@@ -57,6 +57,18 @@ os.makedirs(os.path.dirname(cspDir), exist_ok=True)
 #     filePathLoop = dataDir + '/' +fileName
 #     epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
 #     epochsFilter.save(os.path.join(filterDir, f'filtered_{fileName}.fif'), overwrite=True)
+##Band Power Filter Mu
+#generate bp after fif
+for fileName in os.listdir(dataDir):
+    filePathLoop = dataDir + '/' +fileName
+    epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 7.0, 11.0)
+    epochsFilter.save(os.path.join(filterDir, f'Mu_{fileName}.fif'), overwrite=True)
+##Band Power Filter Beta
+#generate bp after fif
+for fileName in os.listdir(dataDir):
+    filePathLoop = dataDir + '/' +fileName
+    epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 14.0, 30.0)
+    epochsFilter.save(os.path.join(filterDir, f'Beta_{fileName}.fif'), overwrite=True)
 # ########################################
 # EEG artifact modeling/rejection
 ########################################
@@ -100,7 +112,7 @@ os.makedirs(os.path.dirname(cspBandVisual), exist_ok=True)
 # ##load All Feature
 dataParameters.subject = [os.path.splitext(fileName)[0] for fileName in os.listdir(dataDir)]
 # dataAllFeatureOri = loadAllFeature(featureOri, dataParameters.subject)
-dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
+# dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
 # ########################################
 # ##classification
 NonFeatureColumns= ['subjectId', 'start_time', 'label']
@@ -156,41 +168,54 @@ for subIdx, sub in enumerate(dataParameters.subject):
     all_labelsCNN = []
     testSubject = sub
     # runFile = filterDir + 'filtered_' +sub + '.mat.fif'
-    runFile = standDir + 'original_' +sub + '.mat.fif'
+    runMu = filterDir + 'Mu_' +sub + '.mat.fif'
+    runBeta = filterDir + 'Beta_' +sub + '.mat.fif'
     # testFile = standDir + 'original_' +sub + '.mat.fif'
     # trainSubjects = [p for p in dataParameters.subject if p != sub]
-    runEpoch = mne.read_epochs(runFile, preload=True)
-    runSignal = runEpoch.get_data()
+    # runEpoch = mne.read_epochs(runFile, preload=True)
+    # runSignal = runEpoch.get_data()
+    
+    runEpochMu = mne.read_epochs(runMu, preload=True)
+    runEpochBeta = mne.read_epochs(runBeta, preload=True)
+    runSignalMu = runEpochMu.get_data()
+    runSignalBeta = runEpochBeta.get_data()
+    
     allAcc = []
     allSen = []
     allPrec = []
     allF1 = []
     for cv in range(2):
-        length = runSignal.shape[0]
+        length = runSignalMu.shape[0]
         halfLen = int(np.ceil(length*0.5)) 
 
         if cv == 0:
-            trainSignal = runSignal[:halfLen,:,:]
-            trainLabels = runEpoch.events[:halfLen,2]
-            testSignal = runSignal[halfLen:, :, :]
-            testSignalLabel = runEpoch.events[halfLen:, 2]
+            trainData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu[:halfLen,2])
+            testData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu[halfLen:, 2])
+            # trainSignal = runSignal[:halfLen,:,:]
+            # trainLabels = runEpoch.events[:halfLen,2]
+            # testSignal = runSignal[halfLen:, :, :]
+            # testSignalLabel = runEpoch.events[halfLen:, 2]
         elif cv == 1:
-            trainSignal = runSignal[halfLen:,:,:]
-            trainLabels = runEpoch.events[halfLen:,2]
-            testSignal = runSignal[:halfLen, :, :]
-            testSignalLabel = runEpoch.events[:halfLen, 2]
+            testData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu[:halfLen,2])
+            trainData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu[halfLen:, 2])
+            # trainSignal = runSignal[halfLen:,:,:]
+            # trainLabels = runEpoch.events[halfLen:,2]
+            # testSignal = runSignal[:halfLen, :, :]
+            # testSignalLabel = runEpoch.events[:halfLen, 2]
         print("123")
         #train data
-        trainTensor = torch.tensor(trainSignal, dtype=torch.float32)
-        trainLabelsTensor = torch.tensor(trainLabels, dtype=torch.long)
-        trainData = TensorDataset(trainTensor, trainLabelsTensor)
+        # trainTensor = torch.tensor(trainSignal, dtype=torch.float32)
+        # trainLabelsTensor = torch.tensor(trainLabels, dtype=torch.long)
+        # trainData = TensorDataset(trainTensor, trainLabelsTensor)
+        # trainLoader = DataLoader(trainData, batch_size=32, shuffle=True)
         trainLoader = DataLoader(trainData, batch_size=32, shuffle=True)
-
         # #test data
-        testTensor = torch.tensor(testSignal, dtype=torch.float32)
-        testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
-        testData = TensorDataset(testTensor, testLabelsTensor)
+        # testTensor = torch.tensor(testSignal, dtype=torch.float32)
+        # testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
+        # testData = TensorDataset(testTensor, testLabelsTensor)
+        # testLoader = DataLoader(testData, batch_size=32, shuffle=True)
         testLoader = DataLoader(testData, batch_size=32, shuffle=True)
+        
         #Training
         Model = DLTraining(trainLoader, learningRate)
         #Test

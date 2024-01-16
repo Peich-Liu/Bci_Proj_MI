@@ -41,20 +41,20 @@ cspDir = outDir + 'Signal/afterCsp/'
 os.makedirs(os.path.dirname(standDir), exist_ok=True)
 os.makedirs(os.path.dirname(filterDir), exist_ok=True)
 os.makedirs(os.path.dirname(cspDir), exist_ok=True)
-# #######################################
-# ##generate original fif
+# # #######################################
+# # ##generate original fif
 # for fileName in os.listdir(dataDir):
 #     filePathLoop = dataDir + '/' +fileName
 #     epochs, dataLabel = generateMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
 #     epochs.save(os.path.join(standDir, f'original_{fileName}.fif'), overwrite=True)
-# ########################################
-# ##Band Power Filter
-# #generate bp after fif
+# # ########################################
+# # ##Band Power Filter
+# # #generate bp after fif
 # for fileName in os.listdir(dataDir):
 #     filePathLoop = dataDir + '/' +fileName
 #     epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
 #     epochsFilter.save(os.path.join(filterDir, f'filtered_{fileName}.fif'), overwrite=True)
-# ########################################
+# # ########################################
 # EEG artifact modeling/rejection
 ########################################
 ###Spatial Filters(Feature Extraction)
@@ -96,8 +96,8 @@ os.makedirs(os.path.dirname(cspBandVisual), exist_ok=True)
 # ########################################
 # ##load All Feature
 dataParameters.subject = [os.path.splitext(fileName)[0] for fileName in os.listdir(dataDir)]
-# dataAllFeatureOri = loadAllFeature(featureOri, dataParameters.subject)
-dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
+# # dataAllFeatureOri = loadAllFeature(featureOri, dataParameters.subject)
+# dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
 # ########################################
 # ##classification
 NonFeatureColumns= ['subjectId', 'start_time', 'label']
@@ -136,8 +136,8 @@ allReportCNN = []
 classPathCNN = outDir + "CNN_Loo_Validation.csv"
 for subIdx, sub in enumerate(dataParameters.subject):
     testSubject = sub
-    # testFile = filterDir + 'filtered_' +sub + '.mat.fif'
-    testFile = standDir + 'original_' +sub + '.mat.fif'
+    testFile = filterDir + 'filtered_' +sub + '.mat.fif'
+    # testFile = standDir + 'original_' +sub + '.mat.fif'
 
     trainSubjects = [p for p in dataParameters.subject if p != sub]
     testEpoch = mne.read_epochs(testFile, preload=True)

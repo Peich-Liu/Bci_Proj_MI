@@ -17,9 +17,9 @@ from sklearn.metrics import classification_report, confusion_matrix, precision_s
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 
-from architecture import CNNnet
+from architecture import *
 from parameterSetup import dataParameters
-
+from Others.architecture import *
 ########################################
 ####File Methods
 def loadFile(filePath):
@@ -329,15 +329,21 @@ def DLTraining(trainLoader, learningRate):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}.")
     
-    model = CNNnet(dataParameters.channelLen, 2).to(device)
+    # model = CNNnet(dataParameters.channelLen, 2).to(device)
+    # model = Net(16,2).to(device)
+    model = MultiStreamEEGNet(2, input_channels=16, sample_length=1536, num_classes=2)
+
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learningRate)
     for epoch in range(25):
-        for data, label in trainLoader:
-            data, label = data.to(device), label.to(device)
-            optimizer.zero_grad()
-            output = model(data)
-            loss = criterion(output, label)
+        # for data, label in trainLoader:
+        #     data, label = data.to(device), label.to(device)
+        #     optimizer.zero_grad()
+        #     output = model(data)
+        for alpha_input, beta_input, labels in trainLoader:
+            alpha_input, beta_input, labels = alpha_input.to(device), beta_input.to(device), labels.to(device)
+            output = model(alpha_input, beta_input)
+            loss = criterion(output, labels)
             loss.backward()
             optimizer.step()
         print(f'Epoch {epoch+1}, Loss: {loss.item()}')
