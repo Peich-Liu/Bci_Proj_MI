@@ -326,18 +326,22 @@ def testML(X_test, y_test, MlModel):
 ########################################
 ####Deep Learning
 def DLTraining(trainLoader, learningRate):
-    model = CNNnet(dataParameters.channelLen, 2)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Training on device: {device}.")
+    
+    model = CNNnet(dataParameters.channelLen, 2).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learningRate)
     for epoch in range(25):
         for data, label in trainLoader:
+            data, label = data.to(device), label.to(device)
             optimizer.zero_grad()
             output = model(data)
             loss = criterion(output, label)
             loss.backward()
             optimizer.step()
         print(f'Epoch {epoch+1}, Loss: {loss.item()}')
-    return model
+    return model.to('cpu')
 
 def DLTest(model, testLoader):
     model.eval()

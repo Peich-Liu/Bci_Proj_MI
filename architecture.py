@@ -1,5 +1,6 @@
 import torch 
 from torch import nn
+import torch.nn.functional as F
 class CNNnet(nn.Module):
     def __init__(self, channel, num_classes):
         super(CNNnet, self).__init__()
@@ -13,26 +14,35 @@ class CNNnet(nn.Module):
         self.bn2 = nn.BatchNorm1d(32)
 
         self.act = nn.LeakyReLU(0.01)        
-        self.fc1 = nn.Linear(48672, num_classes) 
+        self.fc1 = nn.Linear(24320, 4096)
+        self.fc2 = nn.Linear(4096,2048)
+        self.fc3 = nn.Linear(2048,num_classes)
 
         self.drop = nn.Dropout(0.3)
         self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
+        self.flatten = nn.Flatten()
+
+        # self.pooling = nn.MaxPool1d(kernel_size=2, stride=2)
         
     def forward(self, x):
 
         # x = self.conv1(x)
         # x = self.conv2(x)
         # x = self.bn2(x)
-        x = self.time_conv(x)
-        x = self.space_conv(x)
+        x = F.relu(self.time_conv(x))
+        x = F.relu(self.space_conv(x))
         
-        x = self.act(x)
-        # x = self.pool(x) 
-        x = x.view(x.size(0), -1)
+        # x = self.space_conv(x)
+        # x = self.act(x)
+        # x = x.view(x.size(0), -1)
+        
+        x = self.pool(x) 
+        self.flatten = nn.Flatten()
+        x = self.flatten(x)
         x = self.fc1(x)
-        # x = self.fc2(x)
-        # x = self.fc3(x)
-        x = self.drop(x)
+        x = self.fc2(x)
+        x = self.fc3(x)
+        # x = self.drop(x)
         x = torch.sigmoid(x)       
         
         return x
