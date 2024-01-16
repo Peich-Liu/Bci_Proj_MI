@@ -45,7 +45,7 @@ os.makedirs(os.path.dirname(standDir), exist_ok=True)
 os.makedirs(os.path.dirname(filterDir), exist_ok=True)
 os.makedirs(os.path.dirname(cspDir), exist_ok=True)
 # #######################################
-# ##generate original fif
+# # ##generate original fif
 # for fileName in os.listdir(dataDir):
 #     filePathLoop = dataDir + '/' +fileName
 #     epochs, dataLabel = generateMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
@@ -58,17 +58,17 @@ os.makedirs(os.path.dirname(cspDir), exist_ok=True)
 #     epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
 #     epochsFilter.save(os.path.join(filterDir, f'filtered_{fileName}.fif'), overwrite=True)
 ##Band Power Filter Mu
-#generate bp after fif
-for fileName in os.listdir(dataDir):
-    filePathLoop = dataDir + '/' +fileName
-    epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 7.0, 11.0)
-    epochsFilter.save(os.path.join(filterDir, f'Mu_{fileName}.fif'), overwrite=True)
-##Band Power Filter Beta
-#generate bp after fif
-for fileName in os.listdir(dataDir):
-    filePathLoop = dataDir + '/' +fileName
-    epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 14.0, 30.0)
-    epochsFilter.save(os.path.join(filterDir, f'Beta_{fileName}.fif'), overwrite=True)
+# #generate bp after fif
+# for fileName in os.listdir(dataDir):
+#     filePathLoop = dataDir + '/' +fileName
+#     epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 7.0, 11.0)
+#     epochsFilter.save(os.path.join(filterDir, f'Mu_{fileName}.fif'), overwrite=True)
+# ##Band Power Filter Beta
+# #generate bp after fif
+# for fileName in os.listdir(dataDir):
+#     filePathLoop = dataDir + '/' +fileName
+#     epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 14.0, 30.0)
+#     epochsFilter.save(os.path.join(filterDir, f'Beta_{fileName}.fif'), overwrite=True)
 # ########################################
 # EEG artifact modeling/rejection
 ########################################
@@ -155,7 +155,8 @@ NonFeatureColumns= ['subjectId', 'start_time', 'label']
 # print("123")
 # # # ########################################
 # # # #### Deep Learning - CNN
-learningRate = 0.002
+learningRate = 0.000002
+
 meanAccDl = []
 meanPrecDl = []
 meanF1Dl = []
@@ -167,7 +168,9 @@ for subIdx, sub in enumerate(dataParameters.subject):
     all_predictionsCNN = []
     all_labelsCNN = []
     testSubject = sub
-    # runFile = filterDir + 'filtered_' +sub + '.mat.fif'
+    runBand = filterDir + 'filtered_' +sub + '.mat.fif'
+    runOri = standDir + 'original_' +sub + '.mat.fif'
+    
     runMu = filterDir + 'Mu_' +sub + '.mat.fif'
     runBeta = filterDir + 'Beta_' +sub + '.mat.fif'
     # testFile = standDir + 'original_' +sub + '.mat.fif'
@@ -177,6 +180,8 @@ for subIdx, sub in enumerate(dataParameters.subject):
     
     runEpochMu = mne.read_epochs(runMu, preload=True)
     runEpochBeta = mne.read_epochs(runBeta, preload=True)
+    # runEpochMu = mne.read_epochs(runBand, preload=True)
+    # runEpochBeta = mne.read_epochs(runOri, preload=True)
     runSignalMu = runEpochMu.get_data()
     runSignalBeta = runEpochBeta.get_data()
     
@@ -189,15 +194,15 @@ for subIdx, sub in enumerate(dataParameters.subject):
         halfLen = int(np.ceil(length*0.5)) 
 
         if cv == 0:
-            trainData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu[:halfLen,2])
-            testData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu[halfLen:, 2])
+            trainData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu.events[:halfLen,2])
+            testData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu.events[halfLen:, 2])
             # trainSignal = runSignal[:halfLen,:,:]
             # trainLabels = runEpoch.events[:halfLen,2]
             # testSignal = runSignal[halfLen:, :, :]
             # testSignalLabel = runEpoch.events[halfLen:, 2]
         elif cv == 1:
-            testData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu[:halfLen,2])
-            trainData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu[halfLen:, 2])
+            testData = DLSignal(runSignalMu[:halfLen,:,:], runSignalBeta[:halfLen,:,:], runEpochMu.events[:halfLen,2])
+            trainData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu.events[halfLen:, 2])
             # trainSignal = runSignal[halfLen:,:,:]
             # trainLabels = runEpoch.events[halfLen:,2]
             # testSignal = runSignal[:halfLen, :, :]

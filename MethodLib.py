@@ -44,7 +44,6 @@ def loadFile(filePath):
     windowInfo = []
     convertTrailData = []
     for i, (window, label) in enumerate(zip(trialsData, trialsLabels)):
-        # print("winNum",winNum,"shape=",window[0].shape[0])
         debug = window[0]
         start = i * window[0].shape[0] / Fs
         end = (i + 1) * window[0].shape[0] / Fs
@@ -331,18 +330,23 @@ def DLTraining(trainLoader, learningRate):
     
     # model = CNNnet(dataParameters.channelLen, 2).to(device)
     # model = Net(16,2).to(device)
-    model = MultiStreamEEGNet(2, input_channels=16, sample_length=1536, num_classes=2)
-
+    model = MultiStreamEEGNet(2, input_channels=16, sample_length=1536, num_classes=2).to(device)
+    # model = model.float()
+    # model = model
+    # for param in model.parameters():
+    #     print(param.dtype)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learningRate)
     for epoch in range(25):
-        # for data, label in trainLoader:
-        #     data, label = data.to(device), label.to(device)
-        #     optimizer.zero_grad()
-        #     output = model(data)
-        for alpha_input, beta_input, labels in trainLoader:
-            alpha_input, beta_input, labels = alpha_input.to(device), beta_input.to(device), labels.to(device)
-            output = model(alpha_input, beta_input)
+
+        for mu_input, beta_input, labels in trainLoader:
+            mu_input = mu_input.float().to(device)
+            beta_input = beta_input.float().to(device)
+            labels = labels.long().to(device)
+            # print(labels)
+            # print(beta_input.dtype)
+            # model = model.float()
+            output = model(mu_input, beta_input)
             loss = criterion(output, labels)
             loss.backward()
             optimizer.step()
@@ -356,13 +360,23 @@ def DLTest(model, testLoader):
     all_labels = []
     all_predictions = []
     with torch.no_grad():
-        for data, label in testLoader:
-            outputs = model(data)
+        for mu_input, beta_input, labels in testLoader:
+            
+            mu_input = mu_input.float()
+            beta_input = beta_input.float()
+            outputs = model(mu_input, beta_input)
             _, predicted = torch.max(outputs.data, 1)
-            total += label.size(0)
-            correct += (predicted == label).sum().item()
-            all_labels.extend(label.numpy())
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+            all_labels.extend(labels.numpy())
             all_predictions.extend(predicted.numpy())
+        # for data, label in testLoader:
+        #     outputs = model(data)
+        #     _, predicted = torch.max(outputs.data, 1)
+        #     total += label.size(0)
+        #     correct += (predicted == label).sum().item()
+        #     all_labels.extend(label.numpy())
+        #     all_predictions.extend(predicted.numpy())
     return all_labels, all_predictions, correct, total
 
 def DLevaluate(all_labels, all_predictions, correct, total):
