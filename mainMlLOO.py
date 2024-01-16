@@ -134,46 +134,47 @@ classPathSVM = outDir + "SVM_Loo_Validation.csv"
 learningRate = 0.0002
 allReportCNN = []
 classPathCNN = outDir + "CNN_Loo_Validation.csv"
-# for subIdx, sub in enumerate(dataParameters.subject):
-#     testSubject = sub
-#     testFile = filterDir + 'filtered_' +sub + '.mat.fif'
-#     # testFile = standDir + 'original_' +sub + '.mat.fif'
+for subIdx, sub in enumerate(dataParameters.subject):
+    testSubject = sub
+    # testFile = filterDir + 'filtered_' +sub + '.mat.fif'
+    testFile = standDir + 'original_' +sub + '.mat.fif'
 
-#     trainSubjects = [p for p in dataParameters.subject if p != sub]
-#     testEpoch = mne.read_epochs(testFile, preload=True)
-#     trainSignal = []
-#     trainLabels = []
-#     for trSub in trainSubjects:
-#         trainFile = filterDir + 'filtered_' + trSub + '.mat.fif'
-#         trainEpoch = mne.read_epochs(trainFile, preload=True)
-#         trSignal = trainEpoch.get_data()
-#         trSignalLabel = trainEpoch.events[:, 2]
+    trainSubjects = [p for p in dataParameters.subject if p != sub]
+    testEpoch = mne.read_epochs(testFile, preload=True)
+    trainSignal = []
+    trainLabels = []
+    for trSub in trainSubjects:
+        trainFile = filterDir + 'filtered_' + trSub + '.mat.fif'
+        trainEpoch = mne.read_epochs(trainFile, preload=True)
+        trSignal = trainEpoch.get_data()
+        trSignalLabel = trainEpoch.events[:, 2]
 
 
-#         trainSignal.extend(trSignal)
-#         trainLabels.extend(trSignalLabel)
-#     #train data
-#     trainTensor = torch.tensor(trainSignal, dtype=torch.float32)
-#     trainLabelsTensor = torch.tensor(trainLabels, dtype=torch.long)
-#     trainData = TensorDataset(trainTensor, trainLabelsTensor)
-#     trainLoader = DataLoader(trainData, batch_size=32, shuffle=True)
+        # trainSignal.extend(trSignal.transpose(0,2,1))
+        trainSignal.extend(trSignal)
+        trainLabels.extend(trSignalLabel)
+    #train data
+    trainTensor = torch.tensor(trainSignal, dtype=torch.float32)
+    trainLabelsTensor = torch.tensor(trainLabels, dtype=torch.long)
+    trainData = TensorDataset(trainTensor, trainLabelsTensor)
+    trainLoader = DataLoader(trainData, batch_size=32, shuffle=True)
 
-#     # #test data
-#     testSignal = testEpoch.get_data()
-#     testSignalLabel = testEpoch.events[:, 2]
-#     testTensor = torch.tensor(testSignal, dtype=torch.float32)
-#     testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
-#     testData = TensorDataset(testTensor, testLabelsTensor)
-#     testLoader = DataLoader(testData, batch_size=32, shuffle=True)
-#     #Training
-#     Model = DLTraining(trainLoader, learningRate)
-#     #Test
-#     all_labels, all_predictions, correct, total = DLTest(Model, testLoader)
-#     resultCNN = generateClassifyRes(all_labels, all_predictions, sub)
-#     allReportCNN.append(resultCNN)
-# cnnDf = pd.DataFrame(allReportCNN)
-# cnnDf.to_csv(classPathCNN)
-#     # accuracy, precision, recall, f1 = DLevaluate(all_labels, all_predictions, correct, total)
+    # #test data
+    testSignal = testEpoch.get_data()
+    testSignalLabel = testEpoch.events[:, 2]
+    testTensor = torch.tensor(testSignal, dtype=torch.float32)
+    testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
+    testData = TensorDataset(testTensor, testLabelsTensor)
+    testLoader = DataLoader(testData, batch_size=32, shuffle=True)
+    #Training
+    Model = DLTraining(trainLoader, learningRate)
+    #Test
+    all_labels, all_predictions, correct, total = DLTest(Model, testLoader)
+    resultCNN = generateClassifyRes(all_labels, all_predictions, sub)
+    allReportCNN.append(resultCNN)
+cnnDf = pd.DataFrame(allReportCNN)
+cnnDf.to_csv(classPathCNN)
+    # accuracy, precision, recall, f1 = DLevaluate(all_labels, all_predictions, correct, total)
 ########################################
 # #### Evaluate
 oriStemDir = cspBandVisual + 'Stem/'
@@ -181,13 +182,13 @@ cspStemDir = cspBandVisual + 'Stem/'
 os.makedirs(os.path.dirname(oriStemDir), exist_ok=True)
 os.makedirs(os.path.dirname(cspStemDir), exist_ok=True)
 # ########################################
-## calculate the average
-## SVM
-finalDf = pd.read_csv(classPathSVM)
-mean = finalDf.loc[:, finalDf.columns != 'subId'].mean().to_frame().T
-mean['subId'] = 'average'
-finalDf = pd.concat([finalDf,mean], ignore_index=True)
-finalDf.to_csv(classPathSVM, index=False)
+# ## calculate the average
+# ## SVM
+# finalDf = pd.read_csv(classPathSVM)
+# mean = finalDf.loc[:, finalDf.columns != 'subId'].mean().to_frame().T
+# mean['subId'] = 'average'
+# finalDf = pd.concat([finalDf,mean], ignore_index=True)
+# finalDf.to_csv(classPathSVM, index=False)
 ##CNN
 finalDf = pd.read_csv(classPathCNN)
 mean = finalDf.loc[:, finalDf.columns != 'subId'].mean().to_frame().T
