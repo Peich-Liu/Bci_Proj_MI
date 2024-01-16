@@ -3,8 +3,8 @@ from torch import nn
 class CNNnet(nn.Module):
     def __init__(self, channel, num_classes):
         super(CNNnet, self).__init__()
-        self.time_conv = nn.Conv1d(in_channels=channel, out_channels=64, kernel_size=3, padding=1)
-        self.space_conv = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=channel, groups=64, padding=0)
+        self.time_conv = nn.Conv1d(in_channels=channel, out_channels=32, kernel_size=3, padding=1)
+        self.space_conv = nn.Conv1d(in_channels=32, out_channels=32, kernel_size=channel, padding=0)
         
         self.conv1 = nn.Conv1d(channel, 32, kernel_size=85, stride=1) #16
         self.conv2 = nn.Conv1d(32, 32, kernel_size=10, stride=1) #16*32
@@ -13,7 +13,7 @@ class CNNnet(nn.Module):
         self.bn2 = nn.BatchNorm1d(32)
 
         self.act = nn.LeakyReLU(0.01)        
-        self.fc1 = nn.Linear(97344, num_classes) 
+        self.fc1 = nn.Linear(48672, num_classes) 
 
         self.drop = nn.Dropout(0.3)
         self.pool = nn.MaxPool1d(kernel_size=2, stride=2)
