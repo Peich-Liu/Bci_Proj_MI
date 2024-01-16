@@ -31,7 +31,7 @@ os.makedirs(os.path.dirname(featureDir), exist_ok=True)
 os.makedirs(os.path.dirname(visualDir), exist_ok=True)
 ########################################
 #Annotation Extraction
-# createOriAnnotationFile(dataDir, annotationPath)
+createOriAnnotationFile(dataDir, annotationPath)
 ########################################
 ###Data Standardize
 ## create folder
@@ -41,19 +41,19 @@ cspDir = outDir + 'Signal/afterCsp/'
 os.makedirs(os.path.dirname(standDir), exist_ok=True)
 os.makedirs(os.path.dirname(filterDir), exist_ok=True)
 os.makedirs(os.path.dirname(cspDir), exist_ok=True)
-# # #######################################
-# # ##generate original fif
-# for fileName in os.listdir(dataDir):
-#     filePathLoop = dataDir + '/' +fileName
-#     epochs, dataLabel = generateMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
-#     epochs.save(os.path.join(standDir, f'original_{fileName}.fif'), overwrite=True)
-# # ########################################
-# # ##Band Power Filter
-# # #generate bp after fif
-# for fileName in os.listdir(dataDir):
-#     filePathLoop = dataDir + '/' +fileName
-#     epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
-#     epochsFilter.save(os.path.join(filterDir, f'filtered_{fileName}.fif'), overwrite=True)
+# #######################################
+# ##generate original fif
+for fileName in os.listdir(dataDir):
+    filePathLoop = dataDir + '/' +fileName
+    epochs, dataLabel = generateMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
+    epochs.save(os.path.join(standDir, f'original_{fileName}.fif'), overwrite=True)
+# ########################################
+# ##Band Power Filter
+# #generate bp after fif
+for fileName in os.listdir(dataDir):
+    filePathLoop = dataDir + '/' +fileName
+    epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, filterParameter.lowCut, filterParameter.highCut)
+    epochsFilter.save(os.path.join(filterDir, f'filtered_{fileName}.fif'), overwrite=True)
 # # ########################################
 # EEG artifact modeling/rejection
 ########################################
@@ -63,20 +63,32 @@ featureOri = featureDir + 'FeatureOri/'
 featureDirBand = featureDir + 'FeatureAfterBP/'
 os.makedirs(os.path.dirname(featureOri), exist_ok=True)
 os.makedirs(os.path.dirname(featureDirBand), exist_ok=True)
-########################################k=True)
-##CSP filter for original signal
-# allCspFeature = []
-# for file in os.listdir(standDir):
-#     fileFolderInLoop = os.path.join(standDir,file)
-#     filePathInLoop = os.path.abspath(fileFolderInLoop)
-#     extractCspFeature(outDir, filePathInLoop, featureOri)
-# ##CSP filter for signal after band pass
-# allCspFeatureBandPass = []
-# for file in os.listdir(filterDir):
-#     fileFolderInLoopBand = os.path.join(filterDir,file)
-#     filePathInLoopBand = os.path.abspath(fileFolderInLoopBand)
-#     extractCspFeature(outDir, filePathInLoopBand, featureDirBand)
-#     CspFilter(outDir, filePathInLoopBand, cspDir)
+#######################################k=True)
+#CSP filter for original signal
+allCspFeature = []
+for file in os.listdir(standDir):
+    fileFolderInLoop = os.path.join(standDir,file)
+    filePathInLoop = os.path.abspath(fileFolderInLoop)
+    extractCspFeature(outDir, filePathInLoop, featureOri)
+##CSP filter for signal after band pass
+allCspFeatureBandPass = []
+for file in os.listdir(filterDir):
+    fileFolderInLoopBand = os.path.join(filterDir,file)
+    filePathInLoopBand = os.path.abspath(fileFolderInLoopBand)
+    extractCspFeature(outDir, filePathInLoopBand, featureDirBand)
+    CspFilter(outDir, filePathInLoopBand, cspDir)
+#Band Power Filter Mu
+#generate bp after fif
+for fileName in os.listdir(dataDir):
+    filePathLoop = dataDir + '/' +fileName
+    epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 7.0, 11.0)
+    epochsFilter.save(os.path.join(filterDir, f'Mu_{fileName}.fif'), overwrite=True)
+##Band Power Filter Beta
+#generate bp after fif
+for fileName in os.listdir(dataDir):
+    filePathLoop = dataDir + '/' +fileName
+    epochsFilter, dataLabel = generateFilterMneData(filePathLoop, annotationPath, 14.0, 30.0)
+    epochsFilter.save(os.path.join(filterDir, f'Beta_{fileName}.fif'), overwrite=True)
 ########################################
 ####CSP visualization
 ##Generate the Csp Result Folder
@@ -89,15 +101,15 @@ os.makedirs(os.path.dirname(cspBandVisual), exist_ok=True)
 # for file in os.listdir(featureOri):
 #     fileInVisual = os.path.abspath(os.path.join(featureOri,file))
 #     Csp2DFeatureGenerate(outDir, fileInVisual, cspOriVisual)
-##Generate the Band Pass Signal Result
+# #Generate the Band Pass Signal Result
 # for file in os.listdir(featureDirBand):
 #     fileInVisual = os.path.abspath(os.path.join(featureDirBand,file))
 #     Csp2DFeatureGenerate(outDir, fileInVisual, cspBandVisual)
 # ########################################
 # ##load All Feature
 dataParameters.subject = [os.path.splitext(fileName)[0] for fileName in os.listdir(dataDir)]
-# # dataAllFeatureOri = loadAllFeature(featureOri, dataParameters.subject)
-# dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
+dataAllFeatureOri = loadAllFeature(featureOri, dataParameters.subject)
+dataAllFeatureBand = loadAllFeature(featureDirBand, dataParameters.subject)
 # ########################################
 # ##classification
 NonFeatureColumns= ['subjectId', 'start_time', 'label']
@@ -107,27 +119,27 @@ NonFeatureColumns= ['subjectId', 'start_time', 'label']
 # ##classification for Band Data
 reportSVM = []
 classPathSVM = outDir + "SVM_Loo_Validation.csv"
-# for subIdx, sub in enumerate(dataParameters.subject):
-#     trainFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] != sub]
-#     testFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] == sub]
-#     trainFeatureOri = trainFeatureOriFile.loc[:,~trainFeatureOriFile.columns.isin(NonFeatureColumns)]
-#     testFeatureOri = testFeatureOriFile.loc[:,~testFeatureOriFile.columns.isin(NonFeatureColumns)]
-#     ## data spilt
-#     X_train = trainFeatureOri.to_numpy()
-#     y_train = trainFeatureOriFile['label'].to_numpy()
-#     X_test = testFeatureOri.to_numpy()
-#     y_test = testFeatureOriFile['label'].to_numpy()
-#     # train model
-#     # SVM model
-#     MLParameters.modelType = 'SVM'
-#     SVMModel = trainMlModel(X_train, y_train, MLParameters)
-#     yPredSVM, yProbSVM, report = testML(X_test, y_test, SVMModel)
-#     result = generateClassifyRes(y_test, yPredSVM, sub)
+for subIdx, sub in enumerate(dataParameters.subject):
+    trainFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] != sub]
+    testFeatureOriFile = dataAllFeatureBand[dataAllFeatureBand['subjectId'] == sub]
+    trainFeatureOri = trainFeatureOriFile.loc[:,~trainFeatureOriFile.columns.isin(NonFeatureColumns)]
+    testFeatureOri = testFeatureOriFile.loc[:,~testFeatureOriFile.columns.isin(NonFeatureColumns)]
+    ## data spilt
+    X_train = trainFeatureOri.to_numpy()
+    y_train = trainFeatureOriFile['label'].to_numpy()
+    X_test = testFeatureOri.to_numpy()
+    y_test = testFeatureOriFile['label'].to_numpy()
+    # train model
+    # SVM model
+    MLParameters.modelType = 'SVM'
+    SVMModel = trainMlModel(X_train, y_train, MLParameters)
+    yPredSVM, yProbSVM, report = testML(X_test, y_test, SVMModel)
+    result = generateClassifyRes(y_test, yPredSVM, sub)
     
-#     reportSVM.append(result)
-# svmDf = pd.DataFrame(reportSVM)
-# svmDf.to_csv(classPathSVM)
-# print("123")
+    reportSVM.append(result)
+svmDf = pd.DataFrame(reportSVM)
+svmDf.to_csv(classPathSVM)
+print("123")
 
 # ########################################
 # #### Deep Learning - CNN
@@ -172,13 +184,7 @@ for subIdx, sub in enumerate(dataParameters.subject):
     # #test data
     testData = DLSignal(testSignalMu, testSignalBeta, testEpochMu.events[:, 2])
     testLoader = DataLoader(testData, batch_size=32, shuffle=True)
-    # testSignal = testEpoch.get_data()
-    # testSignalLabel = testEpoch.events[:, 2]
-    # testTensor = torch.tensor(testSignal, dtype=torch.float32)
-    # testLabelsTensor = torch.tensor(testSignalLabel, dtype=torch.long)
-    # testData = TensorDataset(testTensor, testLabelsTensor)
-    # testLoader = DataLoader(testData, batch_size=32, shuffle=True)
-    # testData = DLSignal(runSignalMu[halfLen:, :, :], runSignalBeta[halfLen:, :, :], runEpochMu.events[halfLen:, 2])
+
     #Training
     Model = DLTraining(trainLoader, learningRate)
     #Test
@@ -197,11 +203,11 @@ os.makedirs(os.path.dirname(cspStemDir), exist_ok=True)
 # ########################################
 # ## calculate the average
 # ## SVM
-# finalDf = pd.read_csv(classPathSVM)
-# mean = finalDf.loc[:, finalDf.columns != 'subId'].mean().to_frame().T
-# mean['subId'] = 'average'
-# finalDf = pd.concat([finalDf,mean], ignore_index=True)
-# finalDf.to_csv(classPathSVM, index=False)
+finalDf = pd.read_csv(classPathSVM)
+mean = finalDf.loc[:, finalDf.columns != 'subId'].mean().to_frame().T
+mean['subId'] = 'average'
+finalDf = pd.concat([finalDf,mean], ignore_index=True)
+finalDf.to_csv(classPathSVM, index=False)
 ##CNN
 finalDf = pd.read_csv(classPathCNN)
 mean = finalDf.loc[:, finalDf.columns != 'subId'].mean().to_frame().T
@@ -209,7 +215,5 @@ mean['subId'] = 'average'
 finalDf = pd.concat([finalDf,mean], ignore_index=True)
 finalDf.to_csv(classPathCNN, index=False)
 
-# for filePathCsp in os.listdir(cspDir):
-#     cspVarStemFigure(cspDir, filePathCsp, NonFeatureColumns, cspStemDir)
-
-print("123")
+for filePathCsp in os.listdir(cspDir):
+    cspVarStemFigure(cspDir, filePathCsp, NonFeatureColumns, cspStemDir)
