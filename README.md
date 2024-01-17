@@ -1,11 +1,12 @@
 # Bci_Proj_MI
+## Installation
 use 
 ```bash
 pip install -r requirment.txt
 ```
 to install the library
 
-# Running
+## Running
 use 
 ```bash
 python mainPersonal.py
